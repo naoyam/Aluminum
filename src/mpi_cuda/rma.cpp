@@ -61,9 +61,8 @@ bool RMA::is_ipc_capable(int peer) {
   return false;
 }
 
-
 void RMA::connect(int peer) {
-  if (get_connection(peer)) return;
+  if (find_connection(peer)) return;
   Connection *new_conn = nullptr;
   if (is_ipc_capable(peer)) {
     new_conn = new ConnectionIPC(m_comm, peer, get_local_peer_device(peer));
@@ -74,12 +73,21 @@ void RMA::connect(int peer) {
   m_connections.insert(std::make_pair(peer, new_conn));
 }
 
-Connection *RMA::get_connection(int peer) {
+Connection *RMA::find_connection(int peer) {
   auto conn = m_connections.find(peer);
   if (conn == m_connections.end()) {
-    throw_al_exception("Connection not found");
+    return nullptr;
   }
   return conn->second;
+}
+
+Connection *RMA::get_connection(int peer) {
+  connect(peer);
+  auto conn = find_connection(peer);
+  if (!conn) {
+    throw_al_exception("Connection not available");
+  }
+  return conn;
 }
 
 

@@ -111,7 +111,8 @@ class RMA {
   int get_local_peer_device(int peer);
   bool is_ipc_capable(int peer);
   void connect(int peer);
-  Connection *get_connection(int peer);  
+  Connection *find_connection(int peer);
+  Connection *get_connection(int peer);
 
   void *attach_remote_buffer(void *local_addr, int peer) {
     auto conn = get_connection(peer);

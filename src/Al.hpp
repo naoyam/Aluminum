@@ -701,11 +701,6 @@ void Wait(typename Backend::req_type& req);
 
 namespace ext {
 
-template <typename Backend>
-void Connect(int dest, typename Backend::comm_type& comm) {
-  Backend::Connect(dest, comm);
-}
-
 template <typename Backend, typename T>
 T *AttachRemoteBuffer(T *local_buf, int dest,
                       typename Backend::comm_type& comm) {

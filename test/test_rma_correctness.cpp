@@ -47,14 +47,6 @@ void test_rma_ring() {
   int rhs = (rank + 1) % np;
   int lhs = (rank - 1 + np) % np;
 
-  if (rank % 2) {
-    Al::ext::Connect<Backend>(rhs, comm);
-    Al::ext::Connect<Backend>(lhs, comm);
-  } else {
-    Al::ext::Connect<Backend>(lhs, comm);
-    Al::ext::Connect<Backend>(rhs, comm);
-  }
-
   // Compute sizes to test.
   //std::vector<size_t> sizes = {0};
   std::vector<size_t> sizes;

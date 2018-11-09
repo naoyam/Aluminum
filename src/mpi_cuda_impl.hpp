@@ -184,10 +184,6 @@ class MPICUDABackend {
                 comm.get_stream());
   }
 
-  static void Connect(int peer, comm_type& comm) {
-    comm.get_rma().connect(peer);
-  }
-
   template <typename T>
   static T *AttachRemoteBuffer(T *local_buf, int peer, comm_type& comm) {
     return static_cast<T*>(
