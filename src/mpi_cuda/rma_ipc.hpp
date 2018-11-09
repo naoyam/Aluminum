@@ -102,25 +102,29 @@ class WaitState: public AlState {
 class SyncState: public AlState {
  public:
   SyncState(AlRequest req, int peer, MPICUDACommunicator &comm,
-            cudaEvent_t ev_peer):
+            cudaEvent_t ev_self, cudaEvent_t ev_peer):
       AlState(req), m_peer(peer), m_comm(comm),
-      m_ev_peer(ev_peer),
+      m_ev_self(ev_self), m_ev_peer(ev_peer),
       m_stream_wait_set(false) {}
   void start() override {
+    AL_CHECK_CUDA(cudaEventRecord(m_ev_self, m_comm.get_stream()));
+    MPI_Isend(&key, 1, MPI_INT, m_peer, 0,
+              m_comm.get_comm(), &m_requests[0]);
     MPI_Irecv(&key, 1, MPI_INT, m_peer, 0,
-              m_comm.get_comm(), &m_req);
+              m_comm.get_comm(), &m_requests[1]);
   }
   bool step() override {
     int flag;
-    MPI_Test(&m_req, &flag, MPI_STATUS_IGNORE);
+    MPI_Testall(2, m_requests, &flag, MPI_STATUS_IGNORE);
     if (flag) {
       if (!m_stream_wait_set) {
         AL_CHECK_CUDA(cudaStreamWaitEvent(
             m_comm.get_stream(), m_ev_peer, 0));
         MPI_Isend(&key, 1, MPI_INT, m_peer, 0,
-                  m_comm.get_comm(), &m_req);
+                  m_comm.get_comm(), &m_requests[0]);
+        MPI_Irecv(&key, 1, MPI_INT, m_peer, 0,
+                  m_comm.get_comm(), &m_requests[1]);
         m_stream_wait_set = true;
-        return false;
       } else {
         return true;
       }
@@ -131,10 +135,12 @@ class SyncState: public AlState {
   int key = 0;
   int m_peer;
   MPICUDACommunicator &m_comm;
+  cudaEvent_t m_ev_self;
   cudaEvent_t m_ev_peer;
   bool m_stream_wait_set;
-  MPI_Request m_req;
+  MPI_Request m_requests[2];
 };
+
 }
 
 class ConnectionIPC: public Connection {
@@ -177,9 +183,11 @@ class ConnectionIPC: public Connection {
   void *attach_remote_buffer(void *local_addr) override {
     cudaIpcMemHandle_t local_handle;
     cudaIpcMemHandle_t remote_handle;
-    std::memset(&local_handle, 0, sizeof(cudaIpcMemHandle_t));
     if (local_addr != nullptr) {
       AL_CHECK_CUDA(cudaIpcGetMemHandle(&local_handle, local_addr));
+    } else {
+      // Clears the handle if the local pointer is null
+      std::memset(&local_handle, 0, sizeof(cudaIpcMemHandle_t));
     }
     MPI_Sendrecv(&local_handle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, m_peer, 0,
                  &remote_handle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, m_peer, 0,
@@ -207,6 +215,9 @@ class ConnectionIPC: public Connection {
   }
 
   void detach_remote_buffer(void *remote_addr) override {
+    if (remote_addr == nullptr) {
+      return;
+    }
     auto it = m_remote_buffers.find(remote_addr);
     if (it == m_remote_buffers.end()) {
       throw_al_exception("Invalid address");
@@ -241,14 +252,21 @@ class ConnectionIPC: public Connection {
 
   void sync(AlRequest &req) {
     rma_ipc::SyncState* state =
-        new rma_ipc::SyncState(req, m_peer, m_comm, m_ev_peer);
+        new rma_ipc::SyncState(req, m_peer, m_comm, m_ev, m_ev_peer);
     internal::get_progress_engine()->enqueue(state);
   }
 
-
   void put(const void *src, void *dst, size_t size) override {
-    AL_CHECK_CUDA(cudaMemcpyPeerAsync(dst, m_dev_peer, src, m_dev,
-                                      size, m_comm.get_stream()));
+    if (size > 0) {
+      if (src == nullptr) {
+        throw_al_exception("Source buffer is null");
+      }
+      if (dst == nullptr) {
+        throw_al_exception("Destination buffer is null");
+      }
+      AL_CHECK_CUDA(cudaMemcpyPeerAsync(dst, m_dev_peer, src, m_dev,
+                                        size, m_comm.get_stream()));
+    }
   }
 
  private:

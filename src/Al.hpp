@@ -702,30 +702,35 @@ void Wait(typename Backend::req_type& req);
 namespace ext {
 
 template <typename Backend, typename T>
-T *AttachRemoteBuffer(T *local_buf, int dest,
+T *AttachRemoteBuffer(T *local_buf, int peer,
                       typename Backend::comm_type& comm) {
-  return Backend::template AttachRemoteBuffer<T>(local_buf, dest, comm);
+  return Backend::template AttachRemoteBuffer<T>(local_buf, peer, comm);
 }
 
 template <typename Backend, typename T>
-void DetachRemoteBuffer(T *remote_buf, int dest,
+void DetachRemoteBuffer(T *remote_buf, int peer,
                         typename Backend::comm_type& comm) {
-  Backend::template DetachRemoteBuffer<T>(remote_buf, dest, comm);
+  Backend::template DetachRemoteBuffer<T>(remote_buf, peer, comm);
 }
 
 template <typename Backend>
-void Notify(int dest, typename Backend::comm_type& comm) {
-  Backend::Notify(dest, comm);
+void Notify(int peer, typename Backend::comm_type& comm) {
+  Backend::Notify(peer, comm);
 }
 
 template <typename Backend>
-void Wait(int dest, typename Backend::comm_type& comm) {
-  Backend::Wait(dest, comm);
+void Wait(int peer, typename Backend::comm_type& comm) {
+  Backend::Wait(peer, comm);
 }
 
 template <typename Backend>
-void Sync(int dest, typename Backend::comm_type& comm) {
-  Backend::Sync(dest, comm);
+void Sync(int peer, typename Backend::comm_type& comm) {
+  Backend::Sync(peer, comm);
+}
+
+template <typename Backend>
+void Sync(const int *peers, int num_peers, typename Backend::comm_type& comm) {
+  Backend::Sync(peers, num_peers, comm);
 }
 
 /**

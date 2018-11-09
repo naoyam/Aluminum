@@ -156,7 +156,7 @@ class RMA {
     internal::get_progress_engine()->wait_for_completion(req);
   }
 
-  void sync(int *peers, int num_peers) {
+  void sync(const int *peers, int num_peers) {
     AlRequest *requests = new AlRequest[num_peers];
     for (int i = 0; i < num_peers; ++i) {
       auto conn = get_connection(peers[i]);

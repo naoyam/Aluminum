@@ -207,7 +207,7 @@ class MPICUDABackend {
     comm.get_rma().sync(peer);
   }
 
-  static void Sync(int *peers, int num_peers, comm_type& comm) {
+  static void Sync(const int *peers, int num_peers, comm_type& comm) {
     comm.get_rma().sync(peers, num_peers);
   }
 

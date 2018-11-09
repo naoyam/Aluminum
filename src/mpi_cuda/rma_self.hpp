@@ -46,13 +46,27 @@ class ConnectionSelf: public Connection {
   }
   void detach_remote_buffer(void *) {}
   void detach_all_remote_buffers() {}
-  void notify(AlRequest &) {}
-  void wait(AlRequest &) {}
-  void sync(AlRequest &) {}
+  void notify(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
+  void wait(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
+  void sync(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
   void put(const void *src, void *dst,
            size_t size) {
-    AL_CHECK_CUDA(cudaMemcpyAsync(
-        dst, src, size, cudaMemcpyDefault, m_comm.get_stream()));
+    if (size > 0) {
+      if (src == nullptr) {
+        throw_al_exception("Source buffer is null");
+      }
+      if (dst == nullptr) {
+        throw_al_exception("Destination buffer is null");
+      }
+      AL_CHECK_CUDA(cudaMemcpyAsync(
+          dst, src, size, cudaMemcpyDefault, m_comm.get_stream()));
+    }
   }
 };
 

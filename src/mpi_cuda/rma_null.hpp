@@ -46,9 +46,15 @@ class ConnectionNULL: public Connection {
   }
   void detach_remote_buffer(void *) {}
   void detach_all_remote_buffers() {}
-  void notify(AlRequest &) {}
-  void wait(AlRequest &) {}
-  void sync(AlRequest &) {}
+  void notify(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
+  void wait(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
+  void sync(AlRequest &req) {
+    req->store(true, std::memory_order_release);
+  }
   void put(const void *, void *, size_t) {}
 };
 
