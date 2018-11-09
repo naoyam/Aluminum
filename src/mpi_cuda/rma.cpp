@@ -25,36 +25,63 @@
 // permissions and limitations under the license.
 ////////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
-#include "cudacommunicator.hpp"
-#include <memory>
+#include "Al.hpp"
+#include "mpi_cuda/rma.hpp"
+#include "mpi_cuda/rma_ipc.hpp"
 
 namespace Al {
 namespace internal {
 namespace mpi_cuda {
 
-class RingMPICUDA;
-class RMA;
+int RMA::get_local_peer_device(int peer) {
+  int peer_local_rank = get_peer_local_rank(peer);
+  if (peer_local_rank == -1) return -1;
+  return m_local_devices[peer_local_rank];
+}
 
-class MPICUDACommunicator: public CUDACommunicator {
- public:
-  MPICUDACommunicator() : MPICUDACommunicator(MPI_COMM_WORLD, 0) {}
-  MPICUDACommunicator(cudaStream_t stream_) :
-    MPICUDACommunicator(MPI_COMM_WORLD, stream_) {}
-  MPICUDACommunicator(MPI_Comm comm_, cudaStream_t stream_)
-    : CUDACommunicator(comm_, stream_), m_ring(nullptr), m_rma(nullptr) {
+bool RMA::is_ipc_capable(int peer) {
+  if (!is_on_same_node(peer)) return false;
+
+  int peer_dev = get_local_peer_device(peer);
+  int peer_access;
+  AL_CHECK_CUDA(
+      cudaDeviceCanAccessPeer(&peer_access, m_dev, peer_dev));
+  if (peer_access != 0) {
+    // Peer access possible
+    return true;
   }
+  // IPC memcpy is still possible if a context can be created
+  // at the remote device
+  cudaDeviceProp prop;
+  AL_CHECK_CUDA(
+      cudaGetDeviceProperties(&prop, peer_dev));
+  if (prop.computeMode == cudaComputeModeDefault) {
+    return true;
+  }
+  return false;
+}
 
-  RingMPICUDA &get_ring();
-  RMA &get_rma();
 
-  ~MPICUDACommunicator();
+void RMA::connect(int peer) {
+  if (get_connection(peer)) return;
+  Connection *new_conn = nullptr;
+  if (is_ipc_capable(peer)) {
+    new_conn = new ConnectionIPC(m_comm, peer, get_local_peer_device(peer));
+  } else {
+    throw_al_exception("Cannot connect");
+  }
+  new_conn->connect();
+  m_connections.insert(std::make_pair(peer, new_conn));
+}
 
- protected:
-  RingMPICUDA *m_ring;
-  std::shared_ptr<RMA> m_rma;
-};
+Connection *RMA::get_connection(int peer) {
+  auto conn = m_connections.find(peer);
+  if (conn == m_connections.end()) {
+    throw_al_exception("Connection not found");
+  }
+  return conn->second;
+}
+
 
 } // namespace mpi_cuda
 } // namespace internal

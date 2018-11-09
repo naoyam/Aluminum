@@ -699,6 +699,55 @@ bool Test(typename Backend::req_type& req);
 template <typename Backend>
 void Wait(typename Backend::req_type& req);
 
+namespace ext {
+
+template <typename Backend>
+void Connect(int dest, typename Backend::comm_type& comm) {
+  Backend::Connect(dest, comm);
+}
+
+template <typename Backend, typename T>
+T *AttachRemoteBuffer(T *local_buf, int dest,
+                      typename Backend::comm_type& comm) {
+  return Backend::template AttachRemoteBuffer<T>(local_buf, dest, comm);
+}
+
+template <typename Backend, typename T>
+void DetachRemoteBuffer(T *remote_buf, int dest,
+                        typename Backend::comm_type& comm) {
+  Backend::template DetachRemoteBuffer<T>(remote_buf, dest, comm);
+}
+
+template <typename Backend>
+void Notify(int dest, typename Backend::comm_type& comm) {
+  Backend::Notify(dest, comm);
+}
+
+template <typename Backend>
+void Wait(int dest, typename Backend::comm_type& comm) {
+  Backend::Wait(dest, comm);
+}
+
+template <typename Backend>
+void Sync(int dest, typename Backend::comm_type& comm) {
+  Backend::Sync(dest, comm);
+}
+
+/**
+ * Put a point-to-point message.
+ * @param srcbuf The data to put.
+ * @param count Length of srcbuf.
+ * @param dest Rank in comm to put to.
+ * @param destbuf Buffer to put to.
+ * @param comm Communicator to put within.
+ */
+template <typename Backend, typename T>
+void Put(const T* srcbuf, int dest, T *destbuf,
+         size_t count, typename Backend::comm_type& comm) {
+  Backend::template Put<T>(srcbuf, dest, destbuf, count, comm);
+}
+}
+
 }  // namespace Al
 
 #include "mpi_impl.hpp"
