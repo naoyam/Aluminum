@@ -28,6 +28,7 @@
 #include "Al.hpp"
 #include "mpi_cuda/rma.hpp"
 #include "mpi_cuda/rma_ipc.hpp"
+#include "mpi_cuda/rma_self.hpp"
 
 namespace Al {
 namespace internal {
@@ -64,7 +65,9 @@ bool RMA::is_ipc_capable(int peer) {
 void RMA::open_connection(int peer) {
   if (find_connection(peer)) return;
   Connection *new_conn = nullptr;
-  if (is_ipc_capable(peer)) {
+  if (m_comm.rank() == peer) {
+    new_conn = new ConnectionSelf(m_comm, peer);
+  } else if (is_ipc_capable(peer)) {
     new_conn = new ConnectionIPC(m_comm, peer, get_local_peer_device(peer));
   } else {
     throw_al_exception("Cannot connect");
