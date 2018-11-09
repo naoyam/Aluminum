@@ -61,7 +61,7 @@ bool RMA::is_ipc_capable(int peer) {
   return false;
 }
 
-void RMA::connect(int peer) {
+void RMA::open_connection(int peer) {
   if (find_connection(peer)) return;
   Connection *new_conn = nullptr;
   if (is_ipc_capable(peer)) {
@@ -82,7 +82,7 @@ Connection *RMA::find_connection(int peer) {
 }
 
 Connection *RMA::get_connection(int peer) {
-  connect(peer);
+  open_connection(peer);
   auto conn = find_connection(peer);
   if (!conn) {
     throw_al_exception("Connection not available");
@@ -90,6 +90,16 @@ Connection *RMA::get_connection(int peer) {
   return conn;
 }
 
+void RMA::close_all_connections() {
+  for (auto p: m_connections) {
+    p.second->disconnect();
+  }
+  MPI_Barrier(m_comm.get_comm());
+  for (auto p: m_connections) {
+    delete p.second;
+  }
+  m_connections.clear();
+}
 
 } // namespace mpi_cuda
 } // namespace internal

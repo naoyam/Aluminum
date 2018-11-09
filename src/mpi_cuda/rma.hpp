@@ -39,9 +39,7 @@ class Connection {
  public:
   Connection(MPICUDACommunicator &comm, int peer):
       m_comm(comm), m_peer(peer) {}
-  ~Connection() {
-    disconnect();
-  }
+  virtual ~Connection() {}
   virtual void connect() = 0;
   virtual void disconnect() {}
   virtual void *attach_remote_buffer(void *local_addr) = 0;
@@ -91,6 +89,7 @@ class RMA {
   ~RMA() {
     MPI_Group_free(&m_group);
     MPI_Group_free(&m_local_group);
+    close_all_connections();
   }
 
   int get_peer_local_rank(int peer) {
@@ -110,9 +109,10 @@ class RMA {
 
   int get_local_peer_device(int peer);
   bool is_ipc_capable(int peer);
-  void connect(int peer);
+  void open_connection(int peer);
   Connection *find_connection(int peer);
   Connection *get_connection(int peer);
+  void close_all_connections();
 
   void *attach_remote_buffer(void *local_addr, int peer) {
     auto conn = get_connection(peer);

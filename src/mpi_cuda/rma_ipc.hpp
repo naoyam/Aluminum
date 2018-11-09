@@ -148,6 +148,11 @@ class ConnectionIPC: public Connection {
         &m_ev, cudaEventInterprocess | cudaEventDisableTiming));
   }
 
+  ~ConnectionIPC() override {
+    disconnect();
+    AL_CHECK_CUDA(cudaEventDestroy(m_ev));
+  }
+
   void connect() override {
     cudaIpcEventHandle_t ipc_handle_self;
     cudaIpcEventHandle_t ipc_handle_peer;
@@ -165,6 +170,8 @@ class ConnectionIPC: public Connection {
   void disconnect() override {
     if (!m_connected) return;
     detach_all_remote_buffers();
+    AL_CHECK_CUDA(cudaEventDestroy(m_ev_peer));
+    m_connected = false;
   }
 
   void *attach_remote_buffer(void *local_addr) override {
@@ -200,6 +207,10 @@ class ConnectionIPC: public Connection {
   }
 
   void detach_remote_buffer(void *remote_addr) override {
+    auto it = m_remote_buffers.find(remote_addr);
+    if (it == m_remote_buffers.end()) {
+      throw_al_exception("Invalid address");
+    }
     if (!m_peer_access_enabled) {
       AL_CHECK_CUDA(cudaSetDevice(m_dev_peer));
     }
@@ -207,6 +218,7 @@ class ConnectionIPC: public Connection {
     if (!m_peer_access_enabled) {
       AL_CHECK_CUDA(cudaSetDevice(m_dev));
     }
+    m_remote_buffers.erase(it);
   }
 
   void detach_all_remote_buffers() override {
