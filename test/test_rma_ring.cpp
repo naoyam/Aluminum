@@ -48,8 +48,7 @@ void test_rma_ring() {
   int lhs = (rank - 1 + np) % np;
 
   // Compute sizes to test.
-  //std::vector<size_t> sizes = {0};
-  std::vector<size_t> sizes;
+  std::vector<size_t> sizes = {0};
   for (size_t size = 1; size <= max_size; size *= 2) {
     sizes.push_back(size);
     // Avoid duplicating 2.
