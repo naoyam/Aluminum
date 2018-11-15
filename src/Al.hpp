@@ -701,35 +701,70 @@ void Wait(typename Backend::req_type& req);
 
 namespace ext {
 
+/**
+ * Attach a remote buffer to local memory space for RMA.
+ * @param local_buf Local buffer attached by remote rank.
+ * @param peer Rank in comm to attach buffers with.
+ * @param comm Communicator to attach buffers.
+ * @return Local address the remote buffer is attached at.
+ */
 template <typename Backend, typename T>
 T *AttachRemoteBuffer(T *local_buf, int peer,
                       typename Backend::comm_type& comm) {
   return Backend::template AttachRemoteBuffer<T>(local_buf, peer, comm);
 }
 
+/**
+ * Detach an attached buffer from local memory space.
+ * @param remote_buf Buffer previously attached.
+ * @param peer Rank in comm the buffer is attached with.
+ * @param comm Communicator the buffer is attached with.
+ */
 template <typename Backend, typename T>
 void DetachRemoteBuffer(T *remote_buf, int peer,
                         typename Backend::comm_type& comm) {
   Backend::template DetachRemoteBuffer<T>(remote_buf, peer, comm);
 }
 
+/**
+ * Send a notification message.
+ * @param peer Rank in comm to send a notification to.
+ * @param comm Communicator to send a notification within.
+ */
 template <typename Backend>
 void Notify(int peer, typename Backend::comm_type& comm) {
   Backend::Notify(peer, comm);
 }
 
+/**
+ * Wait a notification message.
+ * @param peer Rank in comm to wait a notification from.
+ * @param comm Communicator to wait a notification within.
+ */
 template <typename Backend>
 void Wait(int peer, typename Backend::comm_type& comm) {
   Backend::Wait(peer, comm);
 }
 
+/**
+ * Exchange a notification message.
+ * @param peer Rank in comm to exchange a notification with.
+ * @param comm Communicator to exchange a notification within.
+ */
 template <typename Backend>
 void Sync(int peer, typename Backend::comm_type& comm) {
   Backend::Sync(peer, comm);
 }
 
+/**
+ * Exchange notification messages with multiple ranks.
+ * @param peers Ranks in comm to exchange a notification with.
+ * @param num_peers Number of ranks in peers.
+ * @param comm Communicator to exchange notifications within.
+ */
 template <typename Backend>
-void Sync(const int *peers, int num_peers, typename Backend::comm_type& comm) {
+void Sync(const int *peers, int num_peers,
+          typename Backend::comm_type& comm) {
   Backend::Sync(peers, num_peers, comm);
 }
 
