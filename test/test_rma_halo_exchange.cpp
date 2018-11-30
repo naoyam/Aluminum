@@ -37,8 +37,8 @@
 #include <string>
 #include <sstream>
 
-size_t min_size = 0;
-size_t max_size = 1<<30;
+size_t min_size = 1;
+size_t max_size = 1<<25;
 
 void get_proc_idx(int rank, int px, int &rx, int &ry) {
   rx = rank % px;
