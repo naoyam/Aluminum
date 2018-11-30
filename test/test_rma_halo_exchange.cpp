@@ -81,9 +81,12 @@ T &get(std::vector<T> &vec, int dim) {
 
 template <typename Backend>
 void test_rma_halo_exchange(int px, int py) {
-  std::vector<typename Backend::comm_type> comms {
-    get_comm_with_stream<Backend>(MPI_COMM_WORLD), get_comm_with_stream<Backend>(MPI_COMM_WORLD)};
-  typename Backend::comm_type &comm = get(comms, 0);
+  std::vector<typename Backend::comm_type> comms = {
+    get_comm_with_stream<Backend>(MPI_COMM_WORLD),
+    get_comm_with_stream<Backend>(MPI_COMM_WORLD),
+    get_comm_with_stream<Backend>(MPI_COMM_WORLD),
+    get_comm_with_stream<Backend>(MPI_COMM_WORLD)};
+  typename Backend::comm_type &comm = comms[0];
 
   int rank = comm.rank();
   int np = comm.size();
@@ -100,6 +103,14 @@ void test_rma_halo_exchange(int px, int py) {
   peer_ranks.push_back(get_rank(get_lhs(pidx[0], px), pidx[1], px));
   peer_ranks.push_back(get_rank(pidx[0], get_rhs(pidx[1], py), px));
   peer_ranks.push_back(get_rank(pidx[0], get_lhs(pidx[1], py), px));
+
+  // matching the communicators with RHS and LHS
+  for (int dim = 0; dim < 2; ++dim) {
+    if (pidx[dim] % 2) {
+      std::cout << "Swapping comm for " << dim << " of rank " << rank << std::endl;
+      std::swap(get(comms, dim, 0), get(comms, dim, 1));
+    }
+  }
 
 #if 0
   std::stringstream ss;
@@ -135,39 +146,63 @@ void test_rma_halo_exchange(int px, int py) {
       if (pidx[dim] % 2) {
         for (int side = 0; side < 2; ++side) {
           get(dest_data, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim));
+              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
           get(dest_tmp, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim));
+              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
         }
       } else {
         for (int side = 1; side >= 0; --side) {
           get(dest_data, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim));
+              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
           get(dest_tmp, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim));
+              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
         }
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      Al::ext::Sync<Backend>(peer_ranks.data() + dim * 2, 2, get(comms, dim));
+      if (pidx[dim] % 2) {
+        for (int side = 0; side < 2; ++side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      } else {
+        for (int side = 1; side >= 0; --side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      }
     }
     for (int dim = 0; dim < 2; ++dim) {
       for (int side = 0; side < 2; ++side) {
         Al::ext::Put<Backend>(get(data, dim, side).data(), get(peer_ranks, dim, side),
-                              get(dest_tmp, dim, side), size, get(comms, dim));
+                              get(dest_tmp, dim, side), size, get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      Al::ext::Sync<Backend>(peer_ranks.data() + dim * 2, 2, get(comms, dim));
+      if (pidx[dim] % 2) {
+        for (int side = 0; side < 2; ++side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      } else {
+        for (int side = 1; side >= 0; --side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      }
     }
     for (int dim = 0; dim < 2; ++dim) {
       for (int side = 0; side < 2; ++side) {
         Al::ext::Put<Backend>(get(tmp, dim, side).data(), get(peer_ranks, dim, side),
-                              get(dest_data, dim, side), size, get(comms, dim));
+                              get(dest_data, dim, side), size, get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      Al::ext::Sync<Backend>(peer_ranks.data() + dim * 2, 2, get(comms, dim));
+      if (pidx[dim] % 2) {
+        for (int side = 0; side < 2; ++side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      } else {
+        for (int side = 1; side >= 0; --side) {
+          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      }
     }
     for (int dim = 0; dim < 2; ++dim) {
       for (int side = 0; side < 2; ++side) {
@@ -178,11 +213,20 @@ void test_rma_halo_exchange(int px, int py) {
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      for (int side = 0; side < 2; ++side) {
-        Al::ext::DetachRemoteBuffer<Backend>(
-            get(dest_tmp, dim, side), get(peer_ranks, dim, side), get(comms, dim));
-        Al::ext::DetachRemoteBuffer<Backend>(
-            get(dest_data, dim, side), get(peer_ranks, dim, side), get(comms, dim));
+      if (pidx[dim] % 2) {
+        for (int side = 0; side < 2; ++side) {
+          Al::ext::DetachRemoteBuffer<Backend>(
+              get(dest_tmp, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
+          Al::ext::DetachRemoteBuffer<Backend>(
+              get(dest_data, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
+        }
+      } else {
+        for (int side = 1; side >= 0; --side) {
+          Al::ext::DetachRemoteBuffer<Backend>(
+              get(dest_tmp, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
+          Al::ext::DetachRemoteBuffer<Backend>(
+              get(dest_data, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
+        }
       }
     }
   }

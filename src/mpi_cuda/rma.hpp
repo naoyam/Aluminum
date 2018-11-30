@@ -42,6 +42,9 @@ class Connection {
   virtual ~Connection() {}
   virtual void connect() = 0;
   virtual void disconnect() {}
+  virtual bool is_connected() const {
+    return false;
+  }
   virtual void *attach_remote_buffer(void *local_addr) = 0;
   virtual void detach_remote_buffer(void *remote_addr) = 0;
   virtual void detach_all_remote_buffers() = 0;

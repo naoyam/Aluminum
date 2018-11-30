@@ -75,7 +75,6 @@ void RMA::open_connection(int peer) {
   } else {
     throw_al_exception("Cannot connect");
   }
-  new_conn->connect();
   m_connections.insert(std::make_pair(peer, new_conn));
 }
 
@@ -97,9 +96,14 @@ Connection *RMA::get_connection(int peer) {
 }
 
 void RMA::close_all_connections() {
+  bool disconnect_called = false;
   for (auto p: m_connections) {
-    p.second->disconnect();
+    if (p.second->is_connected()) {
+      disconnect_called = true;
+      p.second->disconnect();
+    }
   }
+  if (!disconnect_called) return;
   MPI_Barrier(m_comm.get_comm());
   for (auto p: m_connections) {
     delete p.second;

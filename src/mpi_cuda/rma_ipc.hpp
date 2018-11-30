@@ -160,6 +160,7 @@ class ConnectionIPC: public Connection {
   }
 
   void connect() override {
+    if (m_connected) return;
     cudaIpcEventHandle_t ipc_handle_self;
     cudaIpcEventHandle_t ipc_handle_peer;
     AL_CHECK_CUDA(cudaIpcGetEventHandle(&ipc_handle_self, m_ev));
@@ -180,7 +181,14 @@ class ConnectionIPC: public Connection {
     m_connected = false;
   }
 
+  bool is_connected() const override {
+    return m_connected;
+  }
+
   void *attach_remote_buffer(void *local_addr) override {
+    if (!m_connected) {
+      connect();
+    }
     cudaIpcMemHandle_t local_handle;
     cudaIpcMemHandle_t remote_handle;
     if (local_addr != nullptr) {
@@ -215,6 +223,9 @@ class ConnectionIPC: public Connection {
   }
 
   void detach_remote_buffer(void *remote_addr) override {
+    if (!m_connected) {
+      throw_al_exception("Not connected");
+    }
     if (remote_addr == nullptr) {
       return;
     }
@@ -239,24 +250,38 @@ class ConnectionIPC: public Connection {
   }
 
   void notify(AlRequest &req) {
+    if (!m_connected) {
+      throw_al_exception("Not connected");
+    }
     rma_ipc::NotifyState* state =
         new rma_ipc::NotifyState(req, m_peer, m_comm, m_ev);
     internal::get_progress_engine()->enqueue(state);
   }
 
   void wait(AlRequest &req) {
+    if (!m_connected) {
+      throw_al_exception("Not connected");
+    }
     rma_ipc::WaitState* state =
         new rma_ipc::WaitState(req, m_peer, m_comm, m_ev_peer);
     internal::get_progress_engine()->enqueue(state);
   }
 
   void sync(AlRequest &req) {
+    if (!m_connected) {
+      std::stringstream msg;
+      msg << "Not connected to " << m_peer;
+      throw_al_exception(msg.str());
+    }
     rma_ipc::SyncState* state =
         new rma_ipc::SyncState(req, m_peer, m_comm, m_ev, m_ev_peer);
     internal::get_progress_engine()->enqueue(state);
   }
 
   void put(const void *src, void *dst, size_t size) override {
+    if (!m_connected) {
+      throw_al_exception("Not connected");
+    }
     if (size > 0) {
       if (src == nullptr) {
         throw_al_exception("Source buffer is null");
