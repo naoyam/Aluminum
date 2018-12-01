@@ -41,10 +41,10 @@ class ConnectionNULL: public Connection {
   ~ConnectionNULL() {}
   void connect() {}
   void disconnect() {}
-  void *attach_remote_buffer(void *) {
-    return nullptr;
+  std::shared_ptr<MemHandle> attach_remote_buffer(void *) {
+    return std::make_shared<MemHandle>(nullptr);
   }
-  void detach_remote_buffer(void *) {}
+  void detach_remote_buffer(std::shared_ptr<MemHandle>) {}
   void detach_all_remote_buffers() {}
   void notify(AlRequest &req) {
     req->store(true, std::memory_order_release);
@@ -52,10 +52,8 @@ class ConnectionNULL: public Connection {
   void wait(AlRequest &req) {
     req->store(true, std::memory_order_release);
   }
-  void sync(AlRequest &req) {
-    req->store(true, std::memory_order_release);
-  }
-  void put(const void *, void *, size_t) {}
+  void sync() {}
+  void put(const void *, std::shared_ptr<MemHandle>, size_t) {}
 };
 
 } // namespace mpi_cuda

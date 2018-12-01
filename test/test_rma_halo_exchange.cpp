@@ -86,6 +86,7 @@ void test_rma_halo_exchange(int px, int py) {
     get_comm_with_stream<Backend>(MPI_COMM_WORLD),
     get_comm_with_stream<Backend>(MPI_COMM_WORLD),
     get_comm_with_stream<Backend>(MPI_COMM_WORLD)};
+
   typename Backend::comm_type &comm = comms[0];
 
   int rank = comm.rank();
@@ -112,6 +113,18 @@ void test_rma_halo_exchange(int px, int py) {
     }
   }
 
+  for (int dim = 0; dim < 2; ++dim) {
+    if (pidx[dim] % 2) {
+      for (int side = 0; side < 2; ++side) {
+        get(comms, dim, side).init_rma();
+      }
+    } else {
+      for (int side = 1; side >= 0; --side) {
+        get(comms, dim, side).init_rma();
+      }
+    }
+  }
+
 #if 0
   std::stringstream ss;
   ss << rank << ": RXxRY: " << pidx[0] << "x" << pidx[1]
@@ -130,6 +143,7 @@ void test_rma_halo_exchange(int px, int py) {
     }
   }
   for (const auto& size : sizes) {
+    MPI_Barrier(MPI_COMM_WORLD);
     if (comm.rank() == 0) {
       std::cout << "Testing size " << human_readable_size(size) << std::endl;
     }
@@ -140,68 +154,45 @@ void test_rma_halo_exchange(int px, int py) {
     std::vector<typename VectorType<Backend>::type> tmp({
         get_vector<Backend>(size), get_vector<Backend>(size),
             get_vector<Backend>(size), get_vector<Backend>(size)});
-    std::vector<float*> dest_data(4, nullptr);
-    std::vector<float*> dest_tmp(4, nullptr);
+    std::vector<typename Backend::mem_handle_type> dest_data(4);
+    std::vector<typename Backend::mem_handle_type> dest_tmp(4);
     for (int dim = 0; dim < 2; ++dim) {
-      if (pidx[dim] % 2) {
-        for (int side = 0; side < 2; ++side) {
-          get(dest_data, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
-          get(dest_tmp, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      } else {
-        for (int side = 1; side >= 0; --side) {
-          get(dest_data, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(data, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
-          get(dest_tmp, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
-              get(tmp, dim, side).data(), get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      }
-    }
-    for (int dim = 0; dim < 2; ++dim) {
-      if (pidx[dim] % 2) {
-        for (int side = 0; side < 2; ++side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      } else {
-        for (int side = 1; side >= 0; --side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
+      for (int side = 0; side < 2; ++side) {
+        get(dest_data, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
+            get(data, dim, side).data(), get(peer_ranks, dim, side),
+            get(comms, dim, side));
+        get(dest_tmp, dim, side) = Al::ext::AttachRemoteBuffer<Backend>(
+            get(tmp, dim, side).data(), get(peer_ranks, dim, side),
+            get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
       for (int side = 0; side < 2; ++side) {
-        Al::ext::Put<Backend>(get(data, dim, side).data(), get(peer_ranks, dim, side),
-                              get(dest_tmp, dim, side), size, get(comms, dim, side));
-      }
-    }
-    for (int dim = 0; dim < 2; ++dim) {
-      if (pidx[dim] % 2) {
-        for (int side = 0; side < 2; ++side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      } else {
-        for (int side = 1; side >= 0; --side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
+        Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
       for (int side = 0; side < 2; ++side) {
-        Al::ext::Put<Backend>(get(tmp, dim, side).data(), get(peer_ranks, dim, side),
-                              get(dest_data, dim, side), size, get(comms, dim, side));
+        Al::ext::Put<Backend>(
+            get(data, dim, side).data(), get(peer_ranks, dim, side),
+            get(dest_tmp, dim, side), size, get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      if (pidx[dim] % 2) {
-        for (int side = 0; side < 2; ++side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      } else {
-        for (int side = 1; side >= 0; --side) {
-          Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
-        }
+      for (int side = 0; side < 2; ++side) {
+        Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
+      }
+    }
+    for (int dim = 0; dim < 2; ++dim) {
+      for (int side = 0; side < 2; ++side) {
+        Al::ext::Put<Backend>(
+            get(tmp, dim, side).data(), get(peer_ranks, dim, side),
+            get(dest_data, dim, side), size, get(comms, dim, side));
+      }
+    }
+    for (int dim = 0; dim < 2; ++dim) {
+      for (int side = 0; side < 2; ++side) {
+        Al::ext::Sync<Backend>(get(peer_ranks, dim, side), get(comms, dim, side));
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
@@ -213,22 +204,18 @@ void test_rma_halo_exchange(int px, int py) {
       }
     }
     for (int dim = 0; dim < 2; ++dim) {
-      if (pidx[dim] % 2) {
-        for (int side = 0; side < 2; ++side) {
-          Al::ext::DetachRemoteBuffer<Backend>(
-              get(dest_tmp, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
-          Al::ext::DetachRemoteBuffer<Backend>(
-              get(dest_data, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
-        }
-      } else {
-        for (int side = 1; side >= 0; --side) {
-          Al::ext::DetachRemoteBuffer<Backend>(
-              get(dest_tmp, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
-          Al::ext::DetachRemoteBuffer<Backend>(
-              get(dest_data, dim, side), get(peer_ranks, dim, side), get(comms, dim, side));
-        }
+      for (int side = 0; side < 2; ++side) {
+        Al::ext::DetachRemoteBuffer<Backend>(
+            get(dest_tmp, dim, side), get(peer_ranks, dim, side),
+            get(comms, dim, side));
+        Al::ext::DetachRemoteBuffer<Backend>(
+            get(dest_data, dim, side), get(peer_ranks, dim, side),
+            get(comms, dim, side));
       }
     }
+    // Barrier is necessary here because the local buffers may still
+    // be (being) attached at the peer processes
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 }
 

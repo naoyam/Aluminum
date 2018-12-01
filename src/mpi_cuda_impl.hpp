@@ -95,6 +95,7 @@ class MPICUDABackend {
   using algo_type = MPICUDAAllreduceAlgorithm;
   using comm_type = internal::mpi_cuda::MPICUDACommunicator;
   using req_type = std::shared_ptr<internal::mpi_cuda::MPICUDARequest>;
+  using mem_handle_type = std::shared_ptr<internal::mpi_cuda::MemHandle>;
   static constexpr std::nullptr_t null_req = nullptr;
 
   template <typename T>
@@ -185,13 +186,11 @@ class MPICUDABackend {
   }
 
   template <typename T>
-  static T *AttachRemoteBuffer(T *local_buf, int peer, comm_type& comm) {
-    return static_cast<T*>(
-        comm.get_rma().attach_remote_buffer(local_buf, peer));
+  static mem_handle_type AttachRemoteBuffer(T *local_buf, int peer, comm_type& comm) {
+    return comm.get_rma().attach_remote_buffer(local_buf, peer);
   }
 
-  template <typename T>
-  static void DetachRemoteBuffer(T *remote_buf, int peer, comm_type& comm) {
+  static void DetachRemoteBuffer(mem_handle_type remote_buf, int peer, comm_type& comm) {
     comm.get_rma().detach_remote_buffer(remote_buf, peer);
   }
 
@@ -213,7 +212,7 @@ class MPICUDABackend {
 
   template <typename T>
   static void Put(
-      const T* srcbuf, int dest, T * destbuf, size_t count,
+      const T* srcbuf, int dest, mem_handle_type destbuf, size_t count,
       comm_type& comm) {
     comm.get_rma().put(srcbuf, dest, destbuf, sizeof(T) * count);
   }

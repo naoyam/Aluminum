@@ -41,10 +41,10 @@ class ConnectionSelf: public Connection {
   ~ConnectionSelf() {}
   void connect() {}
   void disconnect() {}
-  void *attach_remote_buffer(void *local_addr) {
-    return local_addr;
+  std::shared_ptr<MemHandle> attach_remote_buffer(void *local_addr) {
+    return std::make_shared<MemHandle>(local_addr);
   }
-  void detach_remote_buffer(void *) {}
+  void detach_remote_buffer(std::shared_ptr<MemHandle>) {}
   void detach_all_remote_buffers() {}
   void notify(AlRequest &req) {
     req->store(true, std::memory_order_release);
@@ -52,10 +52,8 @@ class ConnectionSelf: public Connection {
   void wait(AlRequest &req) {
     req->store(true, std::memory_order_release);
   }
-  void sync(AlRequest &req) {
-    req->store(true, std::memory_order_release);
-  }
-  void put(const void *src, void *dst,
+  void sync() {}
+  void put(const void *src, std::shared_ptr<MemHandle> dst,
            size_t size) {
     if (size > 0) {
       if (src == nullptr) {
@@ -65,7 +63,7 @@ class ConnectionSelf: public Connection {
         throw_al_exception("Destination buffer is null");
       }
       AL_CHECK_CUDA(cudaMemcpyAsync(
-          dst, src, size, cudaMemcpyDefault, m_comm.get_stream()));
+          dst->get(), src, size, cudaMemcpyDefault, m_comm.get_stream()));
     }
   }
 };

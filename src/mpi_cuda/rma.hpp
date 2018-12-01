@@ -30,10 +30,25 @@
 #include "mpi_cuda/communicator.hpp"
 #include "cuda.hpp"
 #include <map>
+#include <memory>
 
 namespace Al {
 namespace internal {
 namespace mpi_cuda {
+
+class MemHandle {
+ public:
+  MemHandle(void *p=nullptr): m_p(p) {}
+  virtual ~MemHandle() {}
+  virtual void set(void *p) {
+    m_p = p;
+  }
+  virtual void *get() {
+    return m_p;
+  }
+ protected:
+  void *m_p;
+};
 
 class Connection {
  public:
@@ -41,17 +56,17 @@ class Connection {
       m_comm(comm), m_peer(peer) {}
   virtual ~Connection() {}
   virtual void connect() = 0;
-  virtual void disconnect() {}
+  virtual void disconnect(AlRequest&) {}
   virtual bool is_connected() const {
     return false;
   }
-  virtual void *attach_remote_buffer(void *local_addr) = 0;
-  virtual void detach_remote_buffer(void *remote_addr) = 0;
+  virtual std::shared_ptr<MemHandle> attach_remote_buffer(void *local_addr) = 0;
+  virtual void detach_remote_buffer(std::shared_ptr<MemHandle> remote_addr) = 0;
   virtual void detach_all_remote_buffers() = 0;
   virtual void notify(AlRequest &req) = 0;
   virtual void wait(AlRequest &req) = 0;
-  virtual void sync(AlRequest &req) = 0;
-  virtual void put(const void *src, void *dst,
+  virtual void sync() = 0;
+  virtual void put(const void *src, std::shared_ptr<MemHandle> dst,
                    size_t size) = 0;
 
  protected:
@@ -85,7 +100,7 @@ class RMA {
     m_local_devices.reserve(num_local_ranks);
     MPI_Allgather(&m_dev, 1, MPI_INT,
                   m_local_devices.data(), 1, MPI_INT,
-                  m_comm.get_comm());
+                  local_comm);
     MPI_Comm_free(&local_comm);
   }
 
@@ -117,12 +132,12 @@ class RMA {
   Connection *get_connection(int peer);
   void close_all_connections();
 
-  void *attach_remote_buffer(void *local_addr, int peer) {
+  std::shared_ptr<MemHandle> attach_remote_buffer(void *local_addr, int peer) {
     auto conn = get_connection(peer);
     return conn->attach_remote_buffer(local_addr);
   }
 
-  void detach_remote_buffer(void *remote_addr, int peer) {
+  void detach_remote_buffer(std::shared_ptr<MemHandle> remote_addr, int peer) {
     auto conn = get_connection(peer);
     conn->detach_remote_buffer(remote_addr);
   }
@@ -132,7 +147,7 @@ class RMA {
     conn->detach_all_remote_buffers();
   }
 
-  void put(const void *src, int dst_rank, void *dst,
+  void put(const void *src, int dst_rank, std::shared_ptr<MemHandle> dst,
            size_t size) {
     auto conn = get_connection(dst_rank);
     conn->put(src, dst, size);
@@ -154,21 +169,13 @@ class RMA {
 
   void sync(int peer) {
     auto conn = get_connection(peer);
-    AlRequest req = internal::get_free_request();
-    conn->sync(req);
-    internal::get_progress_engine()->wait_for_completion(req);
+    conn->sync();
   }
 
   void sync(const int *peers, int num_peers) {
-    AlRequest *requests = new AlRequest[num_peers];
     for (int i = 0; i < num_peers; ++i) {
       auto conn = get_connection(peers[i]);
-      AlRequest req = internal::get_free_request();
-      conn->sync(req);
-      requests[i] = req;
-    }
-    for (int i = 0; i < num_peers; ++i) {
-      internal::get_progress_engine()->wait_for_completion(requests[i]);
+      conn->sync();
     }
   }
 

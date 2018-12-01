@@ -36,7 +36,9 @@ class CUDACommunicator : public MPICommunicator {
   CUDACommunicator(cudaStream_t stream_) :
     CUDACommunicator(MPI_COMM_WORLD, stream_) {}
   CUDACommunicator(MPI_Comm comm_, cudaStream_t stream_) :
-    MPICommunicator(comm_), stream(stream_) {}
+    MPICommunicator(comm_), stream(stream_) {
+    std::cerr << "Creating CUDAComm" <<std::endl;
+  }
   Communicator* copy() const override {
     return new CUDACommunicator(get_comm(), stream);
   }

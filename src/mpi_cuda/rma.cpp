@@ -97,14 +97,20 @@ Connection *RMA::get_connection(int peer) {
 
 void RMA::close_all_connections() {
   bool disconnect_called = false;
+  std::vector<AlRequest> reqs;
   for (auto p: m_connections) {
     if (p.second->is_connected()) {
+      AlRequest req = internal::get_free_request();
       disconnect_called = true;
-      p.second->disconnect();
+      p.second->disconnect(req);
+      reqs.push_back(req);
     }
   }
-  if (!disconnect_called) return;
-  MPI_Barrier(m_comm.get_comm());
+  if (!disconnect_called) return;  
+  for (auto &r: reqs) {
+    internal::get_progress_engine()->wait_for_completion(r);
+  }
+  std::cerr << "Disconnect called" << std::endl;
   for (auto p: m_connections) {
     delete p.second;
   }

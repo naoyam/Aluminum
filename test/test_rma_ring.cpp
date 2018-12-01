@@ -62,8 +62,8 @@ void test_rma_ring() {
     }
     auto &&buf = get_vector<Backend>(size);
     auto &&ref = gen_data<Backend>(size);
-    float *rhs_buf = nullptr;
-    float *lhs_buf = nullptr;
+    typename Backend::mem_handle_type rhs_buf;
+    typename Backend::mem_handle_type lhs_buf;
     if (rank % 2) {
       rhs_buf = Al::ext::AttachRemoteBuffer<Backend>(buf.data(), rhs, comm);
       lhs_buf = Al::ext::AttachRemoteBuffer<Backend>(buf.data(), lhs, comm);

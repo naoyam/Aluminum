@@ -709,8 +709,8 @@ namespace ext {
  * @return Local address the remote buffer is attached at.
  */
 template <typename Backend, typename T>
-T *AttachRemoteBuffer(T *local_buf, int peer,
-                      typename Backend::comm_type& comm) {
+typename Backend::mem_handle_type AttachRemoteBuffer(T *local_buf, int peer,
+                                                     typename Backend::comm_type& comm) {
   return Backend::template AttachRemoteBuffer<T>(local_buf, peer, comm);
 }
 
@@ -720,10 +720,10 @@ T *AttachRemoteBuffer(T *local_buf, int peer,
  * @param peer Rank in comm the buffer is attached with.
  * @param comm Communicator the buffer is attached with.
  */
-template <typename Backend, typename T>
-void DetachRemoteBuffer(T *remote_buf, int peer,
+template <typename Backend>
+void DetachRemoteBuffer(typename Backend::mem_handle_type remote_buf, int peer,
                         typename Backend::comm_type& comm) {
-  Backend::template DetachRemoteBuffer<T>(remote_buf, peer, comm);
+  Backend::DetachRemoteBuffer(remote_buf, peer, comm);
 }
 
 /**
@@ -777,7 +777,7 @@ void Sync(const int *peers, int num_peers,
  * @param comm Communicator to put within.
  */
 template <typename Backend, typename T>
-void Put(const T* srcbuf, int dest, T *destbuf,
+void Put(const T* srcbuf, int dest, typename Backend::mem_handle_type destbuf,
          size_t count, typename Backend::comm_type& comm) {
   Backend::template Put<T>(srcbuf, dest, destbuf, count, comm);
 }

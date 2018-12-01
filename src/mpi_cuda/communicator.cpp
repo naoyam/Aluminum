@@ -40,9 +40,14 @@ RingMPICUDA &MPICUDACommunicator::get_ring() {
   return *m_ring;
 }
 
-RMA &MPICUDACommunicator::get_rma() {
-  if (!m_rma)
+void MPICUDACommunicator::init_rma() {
+  if (!m_rma) {
+    std::cerr << "Initializing rma" << std::endl;
     m_rma = std::make_shared<RMA>(*this);
+  }
+}
+RMA &MPICUDACommunicator::get_rma() {
+  init_rma();
   return *m_rma;
 }
 

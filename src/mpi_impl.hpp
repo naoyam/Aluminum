@@ -60,6 +60,7 @@ class MPICommunicator : public Communicator {
                         &local_comm);
     MPI_Comm_rank(local_comm, &rank_in_local_comm);
     MPI_Comm_size(local_comm, &size_of_local_comm);
+    std::cerr << "Duplicating MPI_Comm of rank " << rank() << std::endl;
   }
   virtual ~MPICommunicator() override {
     int finalized;
@@ -70,7 +71,9 @@ class MPICommunicator : public Communicator {
       //MPI_Comm_free(&local_comm);
     }
   }
-  Communicator* copy() const override { return new MPICommunicator(comm); }
+  Communicator* copy() const override {
+    std::cerr << "Copying MPIComm" << std::endl;
+    return new MPICommunicator(comm); }
   int rank() const override { return rank_in_comm; }
   int size() const override { return size_of_comm; }
   MPI_Comm get_comm() const { return comm; }

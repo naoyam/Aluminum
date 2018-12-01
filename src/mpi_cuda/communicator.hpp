@@ -48,6 +48,7 @@ class MPICUDACommunicator: public CUDACommunicator {
 
   RingMPICUDA &get_ring();
   RMA &get_rma();
+  void init_rma();
 
   ~MPICUDACommunicator();
 
